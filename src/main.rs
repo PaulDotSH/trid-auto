@@ -6,23 +6,31 @@ use lazy_static::lazy_static;
 use rayon::prelude::*;
 use regex::Regex;
 use std::{
-    env, io,
-    path::Path,
-    process::{Command, Stdio},
+    env, fs::File, io::{self, Write}, path::Path, process::{exit, Command, Stdio}
 };
 use walkdir::WalkDir;
 
 lazy_static! {
-    static ref TRID_REGEX: Regex = Regex::new(r"(?s).*?([0-9\.]+%) \(([a-zA-Z/\.]+)\) ([a-zA-Z /]+) \(.*Mime type +: ([a-zA-Z/-]+).*Related URL: (.*)\n +Remarks +: +.* +Definition +: +([a-zA-Z-\.-]+)").unwrap();
+    static ref TRID_REGEX: Regex = Regex::new(r"(?s).*?([0-9\.]+%) \(([a-zA-Z/\.]+)\) ([a-zA-Z /]+) \(.*Mime type +: ([a-zA-Z/-]+).*Related URL: (https?://[^\n]+)\n.*?Definition +: +([a-zA-Z-\.-]+)").unwrap();
     static ref TRID_REGEX_SMALL: Regex = Regex::new(r"(?s).*?([0-9\.]+%) \(([a-zA-Z/\.]+)\) ([a-zA-Z /]+) .*").unwrap();
 }
 
 fn main() -> Result<(), anyhow::Error> {
     let matches = command!()
         .arg(arg!([path] "Path to the input folder").required(true))
+        .arg(arg!(-o --output <FILE> "Sets custom output file path"))
         .get_matches();
 
     let dir_path = matches.get_one::<String>("path").unwrap();
+    let output_path = matches.get_one::<String>("output");
+    match output_path {
+        Some(path) => {
+            if !path.ends_with(".csv") {
+                return Err(anyhow!("Only .csv output files are supported at the moment".red()))
+            }
+        }
+        None => {}
+    }
 
     if dir_path.contains("./") || dir_path.contains("../") {
         let args = env::args().collect::<Vec<String>>();
@@ -102,7 +110,13 @@ fn main() -> Result<(), anyhow::Error> {
         .collect();
     pb.finish_with_message("Processing complete.");
 
-    let mut wtr = csv::Writer::from_writer(io::stdout());
+    let writer: Box<dyn Write> = match output_path {
+        Some(path) => Box::new(File::create(path).expect("Failed to create output file")),
+        None => Box::new(io::stdout()),
+    };
+
+    let mut wtr = csv::Writer::from_writer(writer);
+    
     wtr.write_record([
         "File path",
         "Percentage",
