@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use clap::{arg, command};
+use clap::{arg, command, value_parser};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
@@ -19,26 +19,33 @@ fn main() -> Result<(), anyhow::Error> {
     let matches = command!()
         .arg(arg!([path] "Path to the input folder").required(true))
         .arg(arg!(-o --output <FILE> "Sets custom output file path"))
+        .arg(arg!(-t --threads <COUNT> "Sets the thread count to be used").value_parser(value_parser!(usize)))
+        .arg(arg!(-f --filter <FILTER> "Sets a regex filter to be used on the subfolders"))
         .get_matches();
 
     let dir_path = matches.get_one::<String>("path").unwrap();
-    let output_path = matches.get_one::<String>("output");
-    match output_path {
-        Some(path) => {
-            if !path.ends_with(".csv") {
-                return Err(anyhow!("Only .csv output files are supported at the moment".red()))
-            }
+
+    let mut output_path = String::new();
+    if let Some(path) = matches.get_one::<String>("output") {
+        if !path.ends_with(".csv") {
+            return Err(anyhow!("Only .csv output files are supported at the moment".red()))
         }
-        None => {}
+        output_path = path.clone();
+    }
+
+    if let Some(thread_count) = matches.get_one::<usize>("threads") {
+        rayon::ThreadPoolBuilder::new()
+        .num_threads(*thread_count)
+        .build_global()
+        .unwrap();
     }
 
     if dir_path.contains("./") || dir_path.contains("../") {
         let args = env::args().collect::<Vec<String>>();
-        eprintln!("{} {} {}",
+        return Err(anyhow!("{} {} {}",
         "TrID does not play well with paths that contain ./ or ../ please try running the app with".red(),
         args[0].green(),
-        dir_path.replace("../", "").replace("./", "").green()
-    )
+        dir_path.replace("../", "").replace("./", "").green()));
     }
 
     if dir_path.contains(' ') {
@@ -59,7 +66,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     check_trid_database()?;
 
-    let paths: Vec<String> = WalkDir::new(dir_path)
+    let mut paths: Vec<String> = WalkDir::new(dir_path)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
@@ -78,6 +85,13 @@ fn main() -> Result<(), anyhow::Error> {
             }
         })
         .collect();
+
+        if let Some(filter) = matches.get_one::<String>("filter") {
+            let regex = Regex::new(filter)?;
+            paths = paths.iter().filter(|p| {
+                regex.is_match(p)
+            }).cloned().collect::<Vec<_>>();
+        }
 
     let pb = ProgressBar::new(paths.len() as u64);
     pb.set_style(
@@ -110,9 +124,9 @@ fn main() -> Result<(), anyhow::Error> {
         .collect();
     pb.finish_with_message("Processing complete.");
 
-    let writer: Box<dyn Write> = match output_path {
-        Some(path) => Box::new(File::create(path).expect("Failed to create output file")),
-        None => Box::new(io::stdout()),
+    let writer: Box<dyn Write> = match output_path.len() {
+        0 => Box::new(io::stdout()),
+        _ => Box::new(File::create(output_path).expect("Failed to create output file")),
     };
 
     let mut wtr = csv::Writer::from_writer(writer);
@@ -154,13 +168,12 @@ struct Extension {
 }
 
 fn parse_trid_output(content: &str) -> Result<Vec<Extension>, anyhow::Error> {
-    let Some(before_header) = content.find("Collecting data from file") else {
-        return Err(anyhow!("Malformed trid output: {}", content));
-    };
+    let before_header = content.find("Collecting data from file")
+        .ok_or_else(|| anyhow!("Malformed trid output: {}", content))?;
 
-    let Some(after_header) = content[before_header..].find("\n ") else {
-        return Err(anyhow!("Malformed trid output: {}", content));
-    };
+    let after_header = content[before_header..].find("\n ")
+        .ok_or_else(|| anyhow!("Malformed trid output: {}", content))?;
+
 
     let guesses: Vec<_> = content[after_header..]
         .split("\n\n")
