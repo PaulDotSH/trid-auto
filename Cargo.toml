@@ -2,7 +2,7 @@
 name = "trid-auto"
 version = "0.1.2"
 edition = "2024"
-description = "A useful CLI tool"
+description = "A CLI tool that automates running TrID on multiple files, leveraging parallelism and providing filters based on file name and size."
 license = "GPL-3.0"
 homepage = "https://github.com/PaulDotSH/trid-auto"
 repository = "https://github.com/PaulDotSH/trid-auto"
