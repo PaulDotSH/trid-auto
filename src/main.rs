@@ -7,7 +7,9 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use crate::config::parse_arguments;
 use crate::file_processing::{collect_file_paths, validate_path, write_results};
-use crate::trid::{check_trid_database, get_trid_output, parse_trid_output};
+use crate::trid::{check_trid_database, get_trid_batch_output, parse_trid_output};
+
+const BATCH_SIZE: usize = 10;
 
 fn main() -> Result<()> {
     let config = parse_arguments()?;
@@ -26,15 +28,20 @@ fn main() -> Result<()> {
     );
 
     let results: Vec<_> = paths
-        .par_iter()
-        .filter_map(|path| {
-            get_trid_output(path)
-                .ok()
-                .and_then(|output| parse_trid_output(&output.0).ok())
-                .map(|output| {
-                    pb.inc(1);
-                    (path.clone(), output)
-                })
+        .chunks(BATCH_SIZE)
+        .par_bridge()
+        .flat_map(|batch| {
+            match get_trid_batch_output(batch) {
+                Ok(outputs) => outputs.into_iter()
+                    .filter_map(|(output, _)| parse_trid_output(&output).ok())
+                    .zip(batch.iter())
+                    .map(|(extensions, path)| {
+                        pb.inc(1);
+                        (path.clone(), extensions)
+                    })
+                    .collect::<Vec<_>>(),
+                Err(_) => Vec::new(),
+            }
         })
         .collect();
 

@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 
 lazy_static! {
     static ref TRID_REGEX: Regex = Regex::new(r"(?s).*?([0-9\.]+%) \(([a-zA-Z/\.]+)\) ([a-zA-Z /]+) \(.*Mime type +: ([a-zA-Z/-]+).*Related URL: (https?://[^\n]+)\n.*?Definition +: +([a-zA-Z-\.-]+)").unwrap();
+    static ref FILE_SEPARATOR: Regex = Regex::new(r"\n-+\n").unwrap();
 }
 
 #[derive(Debug)]
@@ -44,6 +45,44 @@ pub fn get_trid_output(path: &str) -> Result<(String, String)> {
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
     Ok((stdout, stderr))
+}
+
+pub fn get_trid_batch_output(paths: &[String]) -> Result<Vec<(String, String)>> {
+    let output = Command::new("trid")
+        .arg("-v")
+        .args(paths)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .context("Failed to execute trid")?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+
+    // Split the output by file separator
+    let mut results = Vec::new();
+    let mut current_path = String::new();
+    let mut current_output = String::new();
+
+    for line in stdout.lines() {
+        if line.starts_with("TrID - File Identifier v") {
+            if !current_path.is_empty() && !current_output.is_empty() {
+                results.push((current_output.clone(), stderr.clone()));
+                current_output.clear();
+            }
+            current_path = line.split(": ").nth(1).unwrap_or("").to_string();
+        } else {
+            current_output.push_str(line);
+            current_output.push('\n');
+        }
+    }
+
+    // Add the last result if there is one
+    if !current_output.is_empty() {
+        results.push((current_output, stderr));
+    }
+
+    Ok(results)
 }
 
 pub fn parse_trid_output(content: &str) -> Result<Vec<Extension>> {
