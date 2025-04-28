@@ -33,8 +33,8 @@ pub fn parse_arguments() -> Result<Config> {
 
     let output_path = matches.get_one::<String>("output").cloned();
     if let Some(ref path) = output_path {
-        if !path.ends_with(".csv") {
-            return Err(anyhow!("Only .csv output files are supported at the moment"));
+        if !path.ends_with(".csv") && !path.ends_with(".json") && !path.ends_with(".xml") && !path.ends_with(".html") {
+            return Err(anyhow!("Only .csv, .json, or .xml output files are supported at the moment"));
         }
     }
 

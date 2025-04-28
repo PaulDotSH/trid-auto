@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::{Serialize, Deserialize};
 use std::process::{Command, Stdio};
 
 lazy_static! {
@@ -8,7 +9,7 @@ lazy_static! {
     static ref FILE_SEPARATOR: Regex = Regex::new(r"\n-+\n").unwrap();
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Extension {
     pub percentage: String,
     pub name: String,
@@ -31,20 +32,6 @@ pub fn check_trid_database() -> Result<()> {
     }
 
     Ok(())
-}
-
-pub fn get_trid_output(path: &str) -> Result<(String, String)> {
-    let output = Command::new("trid")
-        .arg("-v")
-        .arg(path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .context("Failed to execute trid")?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-    Ok((stdout, stderr))
 }
 
 pub fn get_trid_batch_output(paths: &[String]) -> Result<Vec<(String, String)>> {
