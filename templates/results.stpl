@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrID Analysis Results</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --background-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #333;
+            --card-bg: #2d2d2d;
+            --hover-bg: rgba(52, 152, 219, 0.2);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: var(--secondary-color);
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+        }
+
+        .summary {
+            background: var(--primary-color);
+            color: var(--text-color);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            background: var(--card-bg);
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .percentage {
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+
+        .file-path {
+            font-family: monospace;
+            word-break: break-all;
+            color: #a0a0a0;
+        }
+
+        .mime-type {
+            font-size: 0.9em;
+            color: #b0b0b0;
+        }
+
+        .extension {
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+
+        .definition {
+            font-style: italic;
+            color: #b0b0b0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TrID Analysis Results</h1>
+        
+        <div class="summary">
+            <p>Total files analyzed: <%= results.len() %></p>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>File Path</th>
+                    <th>Confidence</th>
+                    <th>Extension</th>
+                    <th>Type</th>
+                    <th>MIME Type</th>
+                    <th>Definition</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% for (path, extensions) in results { %>
+                    <% for ext in extensions { %>
+                        <tr>
+                            <td class="file-path"><%= path %></td>
+                            <td class="percentage"><%= ext.percentage %></td>
+                            <td class="extension"><%= ext.extension %></td>
+                            <td><%= ext.name %></td>
+                            <td class="mime-type"><%= ext.mime_type %></td>
+                            <td class="definition"><%= ext.definition %></td>
+                        </tr>
+                    <% } %>
+                <% } %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html> 
